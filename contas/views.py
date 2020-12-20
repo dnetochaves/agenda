@@ -1,21 +1,37 @@
 from django.shortcuts import render, redirect
-from django.contrib import messages
+from django.contrib import messages, auth
 from django.core.validators import validate_email
 from django.contrib.auth.models import User
+from django.contrib.auth.decorators import login_required
+from .models import FormContato
 
 # Create your views here.
 
 
 def index_login(request):
-    return render(request, 'contas/login.html')
+    pass
 
 
 def login(request):
-    return render(request, 'contas/login.html')
+    if request.method != 'POST':
+        return render(request, 'contas/login.html')
+
+    usuario = request.POST.get('usuario')
+    senha = request.POST.get('senha')
+    user = auth.authenticate(request, username=usuario, password=senha)
+
+    if not user:
+        messages.error(request, 'Usuário ou senha inválidos.')
+        return render(request, 'accounts/login.html')
+    else:
+        auth.login(request, user)
+        messages.success(request, 'Você fez login com sucesso.')
+        return redirect('dashboard')
 
 
 def logout(request):
-    return render(request, 'contas/logout.html')
+    auth.logout(request)
+    return redirect('index')
 
 
 def cadastro(request):
@@ -66,10 +82,23 @@ def cadastro(request):
         username=usuario, email=email, password=senha, first_name='nome', last_name='sobrenome')
     user.save()
     return redirect('login')
-   
 
     return render(request, 'contas/cadastro.html')
 
 
+@login_required(login_url='/contas/login/')
 def dashboard(request):
-    return render(request, 'contas/dashboard.html')
+    if request.method != 'POST':
+        form = FormContato()
+        return render(request, 'contas/dashboard.html', {'form': form })
+    form = FormContato(request.POST, request.FILES)
+    
+    if not form.is_valid():
+        messages.add_message(request, messages.ERROR, 'Erro ao enviar formulário')
+        form = FormContato(request.POST)
+        return render(request, 'contas/dashboard.html', {'form': form })
+    
+    form.save()
+    messages.add_message(request, messages.SUCCESS, f'Contato {request.POST.get("nome")} salvo com sucesso')
+    return redirect('dashboard')
+        
